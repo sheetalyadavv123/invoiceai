@@ -3,8 +3,8 @@ import Client from '../models/Client.js';
 import {
   generateInvoiceDescription,
   generateFinancialInsights,
+  generatePaymentReminder,
 } from '../services/aiService.js';
-import { sendReminderEmail } from '../services/emailService.js';
 import { parseInvoiceImage } from '../services/ocrService.js';
 
 export const getInvoiceDescription = async (req, res) => {
@@ -43,11 +43,17 @@ export const sendReminder = async (req, res) => {
     const client = await Client.findById(invoice.client);
     if (!client) return res.status(404).json({ message: 'Client not found' });
 
-    const result = await sendReminderEmail(client, invoice);
+    const daysPastDue = Math.floor(
+      (new Date() - new Date(invoice.dueDate)) / (1000 * 60 * 60 * 24)
+    );
+
+    const aiMessage = await generatePaymentReminder(invoice, client, daysPastDue);
+
     res.json({
-      message: 'Reminder sent successfully',
-      tone: result.tone,
-      daysPastDue: result.daysPastDue,
+      message: 'Reminder generated successfully',
+      reminderText: aiMessage,
+      clientEmail: client.email,
+      daysPastDue,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

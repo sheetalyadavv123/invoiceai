@@ -1,17 +1,20 @@
 import Groq from 'groq-sdk';
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+const getGroqClient = () => {
+  return new Groq({
+    apiKey: process.env.GROQ_API_KEY,
+  });
+};
 
 export const generateInvoiceDescription = async (items) => {
   try {
+    const groq = getGroqClient();
     const itemList = items
       .map((item) => `${item.description} (qty: ${item.quantity}, price: ₹${item.price})`)
       .join(', ');
 
     const response = await groq.chat.completions.create({
-      model: 'llama3-8b-8192',
+      model: 'llama-3.3-70b-versatile',
       messages: [
         {
           role: 'user',
@@ -28,13 +31,14 @@ export const generateInvoiceDescription = async (items) => {
 
 export const generatePaymentReminder = async (invoice, client, daysPastDue) => {
   try {
+    const groq = getGroqClient();
     const tone =
       daysPastDue <= 3 ? 'gentle and polite' :
       daysPastDue <= 10 ? 'firm and professional' :
       'urgent and serious';
 
     const response = await groq.chat.completions.create({
-      model: 'llama3-8b-8192',
+      model: 'llama-3.3-70b-versatile',
       messages: [
         {
           role: 'user',
@@ -56,6 +60,7 @@ export const generatePaymentReminder = async (invoice, client, daysPastDue) => {
 
 export const generateFinancialInsights = async (invoices) => {
   try {
+    const groq = getGroqClient();
     const total = invoices.length;
     const paid = invoices.filter((inv) => inv.status === 'paid').length;
     const overdue = invoices.filter((inv) => inv.status === 'overdue').length;
@@ -65,7 +70,7 @@ export const generateFinancialInsights = async (invoices) => {
       .reduce((sum, inv) => sum + inv.totalAmount, 0);
 
     const response = await groq.chat.completions.create({
-      model: 'llama3-8b-8192',
+      model: 'llama-3.3-70b-versatile',
       messages: [
         {
           role: 'user',
