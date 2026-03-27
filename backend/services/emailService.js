@@ -2,13 +2,17 @@ import nodemailer from 'nodemailer';
 import { getTone, getToneMessage } from '../utils/toneEngine.js';
 import { generatePaymentReminder } from './aiService.js';
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const getTransporter = () => {
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+};
 
 export const sendReminderEmail = async (client, invoice) => {
   try {
@@ -19,6 +23,8 @@ export const sendReminderEmail = async (client, invoice) => {
     const tone = getTone(daysPastDue);
     const toneMessage = getToneMessage(tone);
     const aiMessage = await generatePaymentReminder(invoice, client, daysPastDue);
+
+    const transporter = getTransporter();
 
     const mailOptions = {
       from: process.env.EMAIL_USER,

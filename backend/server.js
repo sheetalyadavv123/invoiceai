@@ -1,5 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
 import express from 'express';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import helmet from 'helmet';
@@ -9,8 +10,8 @@ import invoiceRoutes from './routes/invoiceRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
 import clientRoutes from './routes/clientRoutes.js';
 import aiRoutes from './routes/aiRoutes.js';
+import emailRoutes from './routes/emailRoutes.js';
 
-dotenv.config();
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/email', emailRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is running...');
