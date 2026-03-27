@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
@@ -13,12 +13,25 @@ const NAV_ITEMS = [
 
 export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuthStore();
+  const { logout, user } = useAuthStore();
+  const profileRef = useRef<HTMLDivElement>(null);
 
-  const handleLogout = () => { logout(); navigate('/login'); };
   const isActive = (path: string) => location.pathname === path;
+  const handleLogout = () => { logout(); navigate('/login'); };
+  const initials = user?.name ? user.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) : 'U';
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   return (
     <div style={s.root}>
@@ -30,6 +43,7 @@ export default function DashboardLayout() {
         ::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.3); border-radius: 4px; }
         .nav-item:hover { background: rgba(139,92,246,0.1) !important; }
         .collapse-btn:hover { background: rgba(139,92,246,0.15) !important; }
+        .profile-item:hover { background: rgba(139,92,246,0.1) !important; }
       `}</style>
 
       {/* SIDEBAR */}
@@ -50,19 +64,9 @@ export default function DashboardLayout() {
 
         <nav style={s.nav}>
           {NAV_ITEMS.map(item => (
-            <button
-              key={item.id}
-              className="nav-item"
-              onClick={() => navigate(item.path)}
-              style={{
-                ...s.navItem,
-                background: isActive(item.path) ? 'rgba(124,58,237,0.15)' : 'transparent',
-                color: isActive(item.path) ? '#c4b5fd' : '#6b7280',
-                boxShadow: isActive(item.path) ? 'inset 3px 0 0 #7c3aed' : 'none',
-                justifyContent: collapsed ? 'center' : 'flex-start',
-              }}
-              title={collapsed ? item.label : ''}
-            >
+            <button key={item.id} className="nav-item" onClick={() => navigate(item.path)}
+              style={{ ...s.navItem, background: isActive(item.path) ? 'rgba(124,58,237,0.15)' : 'transparent', color: isActive(item.path) ? '#c4b5fd' : '#6b7280', boxShadow: isActive(item.path) ? 'inset 3px 0 0 #7c3aed' : 'none', justifyContent: collapsed ? 'center' : 'flex-start' }}
+              title={collapsed ? item.label : ''}>
               <span style={{ flexShrink: 0, opacity: isActive(item.path) ? 1 : 0.6 }}>{item.icon}</span>
               {!collapsed && <span style={s.navLabel}>{item.label}</span>}
             </button>
@@ -70,18 +74,69 @@ export default function DashboardLayout() {
         </nav>
 
         <div style={s.sidebarBottom}>
-          <button className="nav-item" onClick={handleLogout}
-            style={{ ...s.navItem, color: '#6b7280', justifyContent: collapsed ? 'center' : 'flex-start' }}>
-            <LogoutIcon />
-            {!collapsed && <span style={s.navLabel}>Logout</span>}
-          </button>
+          {!collapsed && (
+            <div style={{ padding: '8px 12px' }}>
+              <div style={{ fontSize: '11px', color: '#6b7280' }}>{user?.name}</div>
+              <div style={{ fontSize: '10px', color: '#4b5563', marginTop: '2px' }}>{user?.email}</div>
+            </div>
+          )}
         </div>
       </aside>
 
-      {/* PAGE CONTENT */}
-      <main style={s.main}>
-        <Outlet />
-      </main>
+      {/* MAIN */}
+      <div style={s.mainWrap}>
+        {/* TOPBAR */}
+        <header style={s.topbar}>
+          <span style={s.pageName}>
+            {NAV_ITEMS.find(n => isActive(n.path))?.label || 'Dashboard'}
+          </span>
+
+          {/* PROFILE AVATAR */}
+          <div ref={profileRef} style={{ position: 'relative' }}>
+            <button onClick={() => setProfileOpen(p => !p)} style={s.avatar}>{initials}</button>
+
+            {profileOpen && (
+              <div style={s.profileDropdown}>
+                <div style={s.profileHeader}>
+                  <div style={s.profileAvatar}>{initials}</div>
+                  <div>
+                    <div style={s.profileName}>{user?.name || 'User'}</div>
+                    <div style={s.profileEmail}>{user?.email || ''}</div>
+                  </div>
+                </div>
+
+                <div style={s.profileDivider} />
+
+                {[
+                  { label: 'Dashboard', icon: '🏠', path: '/dashboard' },
+                  { label: 'Settings', icon: '⚙️', path: '/settings' },
+                  { label: 'AI Insights', icon: '⚡', path: '/ai' },
+                ].map(item => (
+                  <button key={item.label} className="profile-item"
+                    onClick={() => { navigate(item.path); setProfileOpen(false); }}
+                    style={s.profileItem}>
+                    <span>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+
+                <div style={s.profileDivider} />
+
+                <button className="profile-item" onClick={handleLogout}
+                  style={{ ...s.profileItem, color: '#f87171' }}>
+                  <span>🚪</span>
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* PAGE CONTENT */}
+        <main style={s.main}>
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }
@@ -96,8 +151,19 @@ const s: Record<string, React.CSSProperties> = {
   nav: { flex: 1, padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: '2px' },
   navItem: { display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '10px', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' as const, transition: 'background 0.15s, color 0.15s', whiteSpace: 'nowrap', overflow: 'hidden' },
   navLabel: { fontSize: '13.5px', fontWeight: 500 },
-  sidebarBottom: { padding: '12px 8px', borderTop: '1px solid rgba(139,92,246,0.1)' },
-  main: { flex: 1, overflowY: 'auto', minWidth: 0 },
+  sidebarBottom: { padding: '12px 8px', borderTop: '1px solid rgba(139,92,246,0.1)', minHeight: '52px' },
+  mainWrap: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 },
+  topbar: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 32px', borderBottom: '1px solid rgba(139,92,246,0.08)', background: 'rgba(13,10,30,0.6)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 10 },
+  pageName: { fontFamily: "'Syne', sans-serif", fontSize: '16px', fontWeight: 700, color: '#f3e8ff' },
+  avatar: { width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #4c1d95)', border: '2px solid rgba(139,92,246,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, color: '#e9d5ff', cursor: 'pointer', flexShrink: 0 },
+  profileDropdown: { position: 'absolute', top: '44px', right: 0, width: '220px', background: '#100c22', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '14px', padding: '8px', zIndex: 50, boxShadow: '0 16px 48px rgba(0,0,0,0.5)' },
+  profileHeader: { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px' },
+  profileAvatar: { width: '34px', height: '34px', borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #4c1d95)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, color: '#e9d5ff', flexShrink: 0 },
+  profileName: { fontSize: '13px', fontWeight: 600, color: '#f3e8ff' },
+  profileEmail: { fontSize: '11px', color: '#6b7280', marginTop: '1px' },
+  profileDivider: { height: '1px', background: 'rgba(139,92,246,0.12)', margin: '6px 0' },
+  profileItem: { display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '9px 12px', background: 'none', border: 'none', borderRadius: '8px', color: '#c4b5fd', fontSize: '13px', cursor: 'pointer', textAlign: 'left' as const, transition: 'background 0.15s', fontFamily: "'DM Sans', sans-serif" },
+  main: { flex: 1, overflowY: 'auto' },
 };
 
 function GridIcon() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>; }
@@ -106,6 +172,5 @@ function UsersIcon() { return <svg width="16" height="16" fill="none" stroke="cu
 function CreditCardIcon() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>; }
 function SparkleIcon() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>; }
 function SettingsIcon() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>; }
-function LogoutIcon() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>; }
 function ChevronLeftIcon() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>; }
 function ChevronRightIcon() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>; }

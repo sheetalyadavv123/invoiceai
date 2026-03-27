@@ -1,8 +1,15 @@
 import { useEffect, useState } from 'react';
-import { getFinancialInsights, generatePaymentReminder } from '../../api/ai';
+import { getFinancialInsights, sendReminder } from '../../api/ai';
 import { getInvoices } from '../../api/invoices';
 
-interface Invoice { _id: string; client: { _id: string; name: string } | string; amount: number; status: string; dueDate: string; }
+interface Invoice {
+  _id: string;
+  client: { _id: string; name: string } | string;
+  totalAmount: number;
+  status: string;
+  dueDate: string;
+  invoiceNumber: string;
+}
 
 export default function AIInsights() {
   const [insights, setInsights] = useState<string>('');
@@ -14,7 +21,10 @@ export default function AIInsights() {
 
   useEffect(() => {
     Promise.all([getFinancialInsights(), getInvoices()])
-      .then(([ins, inv]) => { setInsights(ins.insight || ins.text || JSON.stringify(ins)); setInvoices(inv); })
+      .then(([ins, inv]) => {
+        setInsights(ins.insights || ins.text || JSON.stringify(ins));
+        setInvoices(inv);
+      })
       .catch(() => setError('Failed to load AI insights'))
       .finally(() => setLoading(false));
   }, []);
@@ -24,15 +34,24 @@ export default function AIInsights() {
   const handleReminder = async (invoiceId: string) => {
     setReminderLoading(invoiceId);
     try {
-      const res = await generatePaymentReminder(invoiceId);
-      setReminders(prev => ({ ...prev, [invoiceId]: res.reminder || res.text || res }));
-    } catch { setError('Failed to generate reminder'); }
-    finally { setReminderLoading(null); }
+      const res = await sendReminder(invoiceId);
+      setReminders(prev => ({
+        ...prev,
+        [invoiceId]: res.reminderText || res.message || JSON.stringify(res),
+      }));
+    } catch {
+      setError('Failed to generate reminder');
+    } finally {
+      setReminderLoading(null);
+    }
   };
 
   const parseInsights = (text: string) => {
     if (!text) return [];
-    return text.split('\n').filter(l => l.trim().length > 0).map(l => l.replace(/^[-•*]\s*/, '').trim());
+    return text
+      .split('\n')
+      .filter(l => l.trim().length > 0)
+      .map(l => l.replace(/^[-•*]\s*/, '').trim());
   };
 
   return (
@@ -67,14 +86,15 @@ export default function AIInsights() {
             </div>
           ) : (
             <div style={s.insightsList}>
-              {parseInsights(insights).map((line, i) => (
-                <div key={i} style={s.insightItem}>
-                  <div style={s.insightDot} />
-                  <span style={s.insightText}>{line}</span>
-                </div>
-              ))}
-              {parseInsights(insights).length === 0 && (
-                <div style={s.rawText}>{insights}</div>
+              {parseInsights(insights).length > 0 ? (
+                parseInsights(insights).map((line, i) => (
+                  <div key={i} style={s.insightItem}>
+                    <div style={s.insightDot} />
+                    <span style={s.insightText}>{line}</span>
+                  </div>
+                ))
+              ) : (
+                <div style={s.rawText}>{insights || 'Add invoices to get AI insights'}</div>
               )}
             </div>
           )}
@@ -86,7 +106,7 @@ export default function AIInsights() {
             <div style={s.cardIcon}>⚡</div>
             <div>
               <div style={s.cardTitle}>Smart Reminders</div>
-              <div style={s.cardSub}>AI-crafted tone-adjusted emails</div>
+              <div style={s.cardSub}>AI-crafted tone-adjusted messages</div>
             </div>
           </div>
           {overdueInvoices.length === 0 ? (
@@ -94,36 +114,54 @@ export default function AIInsights() {
               <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
               <div style={s.emptyText}>No overdue invoices — great work!</div>
             </div>
-          ) : overdueInvoices.map(inv => (
-            <div key={inv._id} style={s.reminderCard}>
-              <div style={s.reminderTop}>
-                <div>
-                  <div style={s.reminderClient}>{typeof inv.client === 'object' ? inv.client.name : 'Client'}</div>
-                  <div style={s.reminderAmount}>${inv.amount.toLocaleString()} overdue since {new Date(inv.dueDate).toLocaleDateString()}</div>
+          ) : (
+            overdueInvoices.map(inv => (
+              <div key={inv._id} style={s.reminderCard}>
+                <div style={s.reminderTop}>
+                  <div>
+                    <div style={s.reminderClient}>
+                      {typeof inv.client === 'object' ? inv.client.name : 'Client'}
+                    </div>
+                    <div style={s.reminderAmount}>
+                      ₹{inv.totalAmount.toLocaleString()} overdue since {new Date(inv.dueDate).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleReminder(inv._id)}
+                    disabled={reminderLoading === inv._id}
+                    style={{ ...s.genBtn, opacity: reminderLoading === inv._id ? 0.7 : 1 }}
+                  >
+                    {reminderLoading === inv._id ? 'Generating...' : 'Generate'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleReminder(inv._id)}
-                  disabled={reminderLoading === inv._id}
-                  style={{ ...s.genBtn, opacity: reminderLoading === inv._id ? 0.7 : 1 }}
-                >
-                  {reminderLoading === inv._id ? 'Generating...' : 'Generate'}
-                </button>
+                {reminders[inv._id] && (
+                  <div style={s.reminderText}>{reminders[inv._id]}</div>
+                )}
               </div>
-              {reminders[inv._id] && (
-                <div style={s.reminderText}>{reminders[inv._id]}</div>
-              )}
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
       {/* STATS ROW */}
       <div style={s.statsRow}>
         {[
-          { icon: '💰', label: 'Total Revenue', val: `$${invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.amount, 0).toLocaleString()}` },
-          { icon: '⏳', label: 'Pending', val: `$${invoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0).toLocaleString()}` },
-          { icon: '🔴', label: 'Overdue', val: `$${invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0).toLocaleString()}` },
-          { icon: '📄', label: 'Total Invoices', val: invoices.length.toString() },
+          {
+            icon: '💰', label: 'Total Revenue',
+            val: `₹${invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.totalAmount, 0).toLocaleString()}`,
+          },
+          {
+            icon: '⏳', label: 'Pending',
+            val: `₹${invoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.totalAmount, 0).toLocaleString()}`,
+          },
+          {
+            icon: '🔴', label: 'Overdue',
+            val: `₹${invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.totalAmount, 0).toLocaleString()}`,
+          },
+          {
+            icon: '📄', label: 'Total Invoices',
+            val: invoices.length.toString(),
+          },
         ].map(st => (
           <div key={st.label} style={s.statCard}>
             <div style={s.statIcon}>{st.icon}</div>
@@ -134,7 +172,9 @@ export default function AIInsights() {
       </div>
 
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
       `}</style>
     </div>
   );
