@@ -4,6 +4,11 @@ import DashboardLayout from './components/DashboardLayout';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import Dashboard from './pages/dashboard/Dashboard';
+import Invoices from './pages/invoices/Invoices';
+import Clients from './pages/clients/Clients';
+import Payments from './pages/payments/Payments';
+import AIInsights from './pages/ai/AIInsights';
+import Settings from './pages/settings/Settings';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -25,11 +30,11 @@ export default function App() {
           }
         >
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="invoices" element={<div style={{padding:'32px',color:'white'}}>Invoices coming next</div>} />
-          <Route path="clients" element={<div style={{padding:'32px',color:'white'}}>Clients coming next</div>} />
-          <Route path="payments" element={<div style={{padding:'32px',color:'white'}}>Payments coming next</div>} />
-          <Route path="ai" element={<div style={{padding:'32px',color:'white'}}>AI Insights coming next</div>} />
-          <Route path="settings" element={<div style={{padding:'32px',color:'white'}}>Settings coming next</div>} />
+          <Route path="invoices" element={<Invoices />} />
+          <Route path="clients" element={<Clients />} />
+          <Route path="payments" element={<Payments />} />
+          <Route path="ai" element={<AIInsights />} />
+          <Route path="settings" element={<Settings />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

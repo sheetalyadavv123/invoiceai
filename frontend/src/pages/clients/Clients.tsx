@@ -3,7 +3,7 @@ import { getClients, createClient, deleteClient } from '../../api/clients';
 import { getInvoices } from '../../api/invoices';
 
 interface Client { _id: string; name: string; email: string; phone: string; payScore?: number; }
-interface Invoice { _id: string; client: { _id: string; name: string } | string; amount: number; status: string; dueDate: string; }
+interface Invoice { _id: string; client: { _id: string; name: string } | string; totalAmount: number; status: string; dueDate: string; }
 
 const statusStyle = (s: string): React.CSSProperties => ({
   paid:    { background: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.25)' },
@@ -33,7 +33,7 @@ export default function Clients() {
     invoices.filter(inv => typeof inv.client === 'object' ? inv.client._id === clientId : inv.client === clientId);
 
   const clientTotal = (clientId: string) =>
-    clientInvoices(clientId).filter(i => i.status === 'paid').reduce((s, i) => s + i.amount, 0);
+    clientInvoices(clientId).filter(i => i.status === 'paid').reduce((s, i) => s + i.totalAmount, 0);
 
   const filtered = clients.filter(c => c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase()));
 
@@ -137,7 +137,7 @@ export default function Clients() {
               ) : clientInvoices(selected._id).map(inv => (
                 <div key={inv._id} style={s.invItem}>
                   <div>
-                    <div style={{ fontSize: '13px', color: '#e9d5ff', fontWeight: 500 }}>${inv.amount.toLocaleString()}</div>
+                    <div style={{ fontSize: '13px', color: '#e9d5ff', fontWeight: 500 }}>${inv.totalAmount.toLocaleString()}</div>
                     <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>Due {new Date(inv.dueDate).toLocaleDateString()}</div>
                   </div>
                   <span style={{ ...s.badge, ...statusStyle(inv.status) }}>{inv.status}</span>

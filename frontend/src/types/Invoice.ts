@@ -6,10 +6,17 @@ export interface InvoiceItem {
 
 export interface Invoice {
   _id: string;
-  client: string;
-  amount: number;
-  status: 'paid' | 'pending' | 'overdue';
-  dueDate: string;
+  invoiceNumber: string;
+  client: {
+    _id: string;
+    name: string;
+    email: string;
+  };
   items: InvoiceItem[];
+  totalAmount: number;
+  status: 'pending' | 'paid' | 'overdue';
+  dueDate: string;
   notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }

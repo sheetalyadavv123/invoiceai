@@ -3,7 +3,16 @@ import { getInvoices, createInvoice, deleteInvoice } from '../../api/invoices';
 import { getClients } from '../../api/clients';
 
 interface InvoiceItem { description: string; quantity: number; price: number; }
-interface Invoice { _id: string; client: { _id: string; name: string } | string; amount: number; status: 'paid' | 'pending' | 'overdue'; dueDate: string; items: InvoiceItem[]; notes?: string; }
+interface Invoice {
+  _id: string;
+  client: { _id: string; name: string } | string;
+  totalAmount: number;
+  status: 'paid' | 'pending' | 'overdue';
+  dueDate: string;
+  items: InvoiceItem[];
+  notes?: string;
+  invoiceNumber: string;
+}
 interface Client { _id: string; name: string; email: string; }
 
 const statusStyle = (s: string): React.CSSProperties => ({
@@ -12,7 +21,7 @@ const statusStyle = (s: string): React.CSSProperties => ({
   overdue: { background: 'rgba(239,68,68,0.12)',  color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' },
 }[s] as React.CSSProperties);
 
-const EMPTY_FORM = { clientId: '', amount: '', dueDate: '', notes: '', status: 'pending', items: [{ description: '', quantity: 1, price: 0 }] };
+const EMPTY_FORM = { clientId: '', dueDate: '', notes: '', status: 'pending', items: [{ description: '', quantity: 1, price: 0 }] };
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -46,29 +55,48 @@ export default function Invoices() {
     setForm(f => ({ ...f, items }));
   };
   const removeItem = (i: number) => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
-
   const calcTotal = () => form.items.reduce((sum, it) => sum + (Number(it.quantity) * Number(it.price)), 0);
 
   const handleSubmit = async () => {
     if (!form.clientId || !form.dueDate) { setError('Client and due date are required'); return; }
     setSaving(true); setError('');
     try {
-      const created = await createInvoice({ client: form.clientId, amount: calcTotal(), dueDate: form.dueDate, notes: form.notes, status: form.status as 'pending', items: form.items });
+      const created = await createInvoice({
+        client: form.clientId,
+        totalAmount: calcTotal(),
+        dueDate: form.dueDate,
+        notes: form.notes,
+        status: form.status as 'pending',
+        items: form.items,
+      });
       setInvoices(prev => [created, ...prev]);
-      setShowModal(false); setForm(EMPTY_FORM);
-    } catch { setError('Failed to create invoice'); }
-    finally { setSaving(false); }
+      setShowModal(false);
+      setForm(EMPTY_FORM);
+    } catch {
+      setError('Failed to create invoice');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this invoice?')) return;
-    try { await deleteInvoice(id); setInvoices(prev => prev.filter(i => i._id !== id)); }
-    catch { setError('Failed to delete'); }
+    try {
+      await deleteInvoice(id);
+      setInvoices(prev => prev.filter(i => i._id !== id));
+    } catch {
+      setError('Failed to delete');
+    }
   };
 
   return (
     <div style={s.page}>
-      <style>{`.action-btn:hover{opacity:1!important} .row-del:hover{color:#f87171!important} .inv-row:hover{background:rgba(139,92,246,0.06)!important}`}</style>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+        .row-del:hover{color:#f87171!important}
+        .inv-row:hover{background:rgba(139,92,246,0.06)!important}
+        .filter-btn:hover{background:rgba(139,92,246,0.15)!important}
+      `}</style>
 
       {/* HEADER */}
       <div style={s.header}>
@@ -81,10 +109,20 @@ export default function Invoices() {
 
       {/* FILTERS */}
       <div style={s.filterBar}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by client..." style={s.searchInput} />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search by client..."
+          style={s.searchInput}
+        />
         <div style={s.filterGroup}>
           {['all', 'paid', 'pending', 'overdue'].map(f => (
-            <button key={f} onClick={() => setFilterStatus(f)} style={{ ...s.filterBtn, background: filterStatus === f ? 'rgba(124,58,237,0.25)' : 'transparent', color: filterStatus === f ? '#c4b5fd' : '#6b7280', border: filterStatus === f ? '1px solid rgba(124,58,237,0.4)' : '1px solid transparent' }}>{f}</button>
+            <button key={f} className="filter-btn" onClick={() => setFilterStatus(f)} style={{
+              ...s.filterBtn,
+              background: filterStatus === f ? 'rgba(124,58,237,0.25)' : 'transparent',
+              color: filterStatus === f ? '#c4b5fd' : '#6b7280',
+              border: filterStatus === f ? '1px solid rgba(124,58,237,0.4)' : '1px solid transparent',
+            }}>{f}</button>
           ))}
         </div>
       </div>
@@ -93,29 +131,56 @@ export default function Invoices() {
 
       {/* TABLE */}
       <div style={s.tableWrap}>
-        {loading ? <div style={s.loading}>Loading invoices...</div> : (
+        {loading ? (
+          <div style={s.loading}>Loading invoices...</div>
+        ) : (
           <table style={s.table}>
             <thead>
-              <tr>{['Client', 'Amount', 'Status', 'Due Date', 'Actions'].map(h => <th key={h} style={s.th}>{h}</th>)}</tr>
+              <tr>
+                {['Invoice #', 'Client', 'Amount', 'Status', 'Due Date', 'Actions'].map(h => (
+                  <th key={h} style={s.th}>{h}</th>
+                ))}
+              </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#4b5563', padding: '40px' }}>No invoices found</td></tr>
+                <tr>
+                  <td colSpan={6} style={{ ...s.td, textAlign: 'center', color: '#4b5563', padding: '40px' }}>
+                    No invoices found
+                  </td>
+                </tr>
               ) : filtered.map(inv => (
                 <tr key={inv._id} className="inv-row" style={{ transition: 'background 0.15s' }}>
+                  <td style={{ ...s.td, color: '#6b7280', fontSize: '12px' }}>
+                    {inv.invoiceNumber}
+                  </td>
                   <td style={s.td}>
                     <div style={s.clientCell}>
-                      <div style={{ ...s.avatar, background: `hsl(${(typeof inv.client === 'object' ? inv.client.name : '').charCodeAt(0) * 5},60%,25%)`, color: `hsl(${(typeof inv.client === 'object' ? inv.client.name : '').charCodeAt(0) * 5},80%,70%)` }}>
+                      <div style={{
+                        ...s.avatar,
+                        background: `hsl(${(typeof inv.client === 'object' ? inv.client.name : '').charCodeAt(0) * 5},60%,25%)`,
+                        color: `hsl(${(typeof inv.client === 'object' ? inv.client.name : '').charCodeAt(0) * 5},80%,70%)`
+                      }}>
                         {typeof inv.client === 'object' ? inv.client.name[0] : '?'}
                       </div>
                       {typeof inv.client === 'object' ? inv.client.name : inv.client}
                     </div>
                   </td>
-                  <td style={{ ...s.td, color: '#e9d5ff', fontWeight: 500 }}>${inv.amount.toLocaleString()}</td>
-                  <td style={s.td}><span style={{ ...s.badge, ...statusStyle(inv.status) }}>{inv.status}</span></td>
-                  <td style={{ ...s.td, color: '#6b7280' }}>{new Date(inv.dueDate).toLocaleDateString()}</td>
+                  <td style={{ ...s.td, color: '#e9d5ff', fontWeight: 500 }}>
+                    ₹{inv.totalAmount.toLocaleString()}
+                  </td>
                   <td style={s.td}>
-                    <button className="row-del" onClick={() => handleDelete(inv._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', fontSize: '18px', transition: 'color 0.15s' }}>×</button>
+                    <span style={{ ...s.badge, ...statusStyle(inv.status) }}>{inv.status}</span>
+                  </td>
+                  <td style={{ ...s.td, color: '#6b7280' }}>
+                    {new Date(inv.dueDate).toLocaleDateString()}
+                  </td>
+                  <td style={s.td}>
+                    <button
+                      className="row-del"
+                      onClick={() => handleDelete(inv._id)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', fontSize: '18px', transition: 'color 0.15s' }}
+                    >×</button>
                   </td>
                 </tr>
               ))}
@@ -137,14 +202,25 @@ export default function Invoices() {
               <div style={s.row2}>
                 <div style={s.field}>
                   <label style={s.label}>Client *</label>
-                  <select value={form.clientId} onChange={e => setForm(f => ({ ...f, clientId: e.target.value }))} style={s.select}>
+                  <select
+                    value={form.clientId}
+                    onChange={e => setForm(f => ({ ...f, clientId: e.target.value }))}
+                    style={s.select}
+                  >
                     <option value="">Select client</option>
-                    {clients.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                    {clients.map(c => (
+                      <option key={c._id} value={c._id}>{c.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div style={s.field}>
                   <label style={s.label}>Due Date *</label>
-                  <input type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} style={s.input} />
+                  <input
+                    type="date"
+                    value={form.dueDate}
+                    onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))}
+                    style={s.input}
+                  />
                 </div>
               </div>
 
@@ -152,10 +228,31 @@ export default function Invoices() {
                 <label style={s.label}>Line Items</label>
                 {form.items.map((item, i) => (
                   <div key={i} style={s.itemRow}>
-                    <input placeholder="Description" value={item.description} onChange={e => handleItemChange(i, 'description', e.target.value)} style={{ ...s.input, flex: 2 }} />
-                    <input type="number" placeholder="Qty" value={item.quantity} onChange={e => handleItemChange(i, 'quantity', e.target.value)} style={{ ...s.input, flex: '0 0 64px' }} min={1} />
-                    <input type="number" placeholder="Price" value={item.price} onChange={e => handleItemChange(i, 'price', e.target.value)} style={{ ...s.input, flex: 1 }} min={0} />
-                    {form.items.length > 1 && <button onClick={() => removeItem(i)} style={s.removeBtn}>×</button>}
+                    <input
+                      placeholder="Description"
+                      value={item.description}
+                      onChange={e => handleItemChange(i, 'description', e.target.value)}
+                      style={{ ...s.input, flex: 2 }}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Qty"
+                      value={item.quantity}
+                      onChange={e => handleItemChange(i, 'quantity', e.target.value)}
+                      style={{ ...s.input, flex: '0 0 64px' }}
+                      min={1}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Price"
+                      value={item.price}
+                      onChange={e => handleItemChange(i, 'price', e.target.value)}
+                      style={{ ...s.input, flex: 1 }}
+                      min={0}
+                    />
+                    {form.items.length > 1 && (
+                      <button onClick={() => removeItem(i)} style={s.removeBtn}>×</button>
+                    )}
                   </div>
                 ))}
                 <button onClick={handleAddItem} style={s.addItemBtn}>+ Add item</button>
@@ -163,12 +260,19 @@ export default function Invoices() {
 
               <div style={s.totalRow}>
                 <span style={{ color: '#6b7280', fontSize: '13px' }}>Total</span>
-                <span style={{ color: '#e9d5ff', fontWeight: 600, fontSize: '18px' }}>${calcTotal().toLocaleString()}</span>
+                <span style={{ color: '#e9d5ff', fontWeight: 600, fontSize: '18px' }}>
+                  ₹{calcTotal().toLocaleString()}
+                </span>
               </div>
 
               <div style={s.field}>
                 <label style={s.label}>Notes</label>
-                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notes..." style={{ ...s.input, height: '72px', resize: 'none' }} />
+                <textarea
+                  value={form.notes}
+                  onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="Optional notes..."
+                  style={{ ...s.input, height: '72px', resize: 'none' }}
+                />
               </div>
 
               {error && <div style={s.errBanner}>{error}</div>}
@@ -176,7 +280,13 @@ export default function Invoices() {
 
             <div style={s.modalFooter}>
               <button onClick={() => setShowModal(false)} style={s.cancelBtn}>Cancel</button>
-              <button onClick={handleSubmit} disabled={saving} style={{ ...s.submitBtn, opacity: saving ? 0.7 : 1 }}>{saving ? 'Creating...' : 'Create Invoice'}</button>
+              <button
+                onClick={handleSubmit}
+                disabled={saving}
+                style={{ ...s.submitBtn, opacity: saving ? 0.7 : 1 }}
+              >
+                {saving ? 'Creating...' : 'Create Invoice'}
+              </button>
             </div>
           </div>
         </div>
