@@ -1,5 +1,7 @@
 import Invoice from '../models/Invoice.js';
 import { detectOverdue } from '../services/invoiceService.js';
+import { sendInvoiceEmail } from '../services/emailService.js';
+import Client from '../models/Client.js';
 
 export const createInvoice = async (req, res) => {
   try {
@@ -12,9 +14,22 @@ export const createInvoice = async (req, res) => {
       dueDate,
       notes,
     });
-    res.status(201).json(invoice);
+
+    const populatedInvoice = await Invoice.findById(invoice._id)
+      .populate('client', 'name email');
+
+    try {
+      const clientData = await Client.findById(client);
+      if (clientData) {
+        await sendInvoiceEmail(clientData, populatedInvoice);
+      }
+    } catch (emailErr) {
+      console.error('Email failed but invoice created:', emailErr.message);
+    }
+
+    res.status(201).json(populatedInvoice);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: 'Failed to create invoice', error: error.message });
   }
 };
 
