@@ -1,5 +1,7 @@
 import axiosInstance from '../lib/axiosInstance';
 
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 export const getInvoices = async () => {
   const { data } = await axiosInstance.get('/invoices');
   return data;
@@ -26,13 +28,18 @@ export const deleteInvoice = async (id: string) => {
 };
 
 export const getPublicInvoice = async (id: string) => {
-  const { data } = await axiosInstance.get(`/invoices/public/${id}`);
-  return data;
+  const response = await fetch(`${BASE_URL}/invoices/public/${id}`);
+  if (!response.ok) throw new Error('Invoice not found');
+  return response.json();
 };
 
 export const markAsPaid = async (id: string) => {
-  const { data } = await axiosInstance.patch(`/invoices/public/${id}/mark-paid`);
-  return data;
+  const response = await fetch(`${BASE_URL}/invoices/public/${id}/mark-paid`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) throw new Error('Failed to mark as paid');
+  return response.json();
 };
 
 export const sendInvoiceReminder = async (id: string) => {
