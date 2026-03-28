@@ -22,8 +22,8 @@ mongoose.connect(process.env.MONGO_URI)
 app.use(helmet());
 app.use(cors({
   origin: [
+    'https://invoi-coral.vercel.app',
     'http://localhost:5173',
-    'https://invoi-coral.vercel.app/'
   ],
   credentials: true,
 }));
