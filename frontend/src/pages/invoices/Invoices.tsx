@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getInvoices, createInvoice, deleteInvoice } from '../../api/invoices';
+import { getInvoices, createInvoice, deleteInvoice, sendInvoiceReminder } from '../../api/invoices';
 import { getClients } from '../../api/clients';
 
 interface InvoiceItem { description: string; quantity: number; price: number; }
@@ -39,6 +39,8 @@ export default function Invoices() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [reminderLoading, setReminderLoading] = useState<string | null>(null);
+  const [reminderSent, setReminderSent] = useState<string[]>([]);
 
   useEffect(() => {
     Promise.all([getInvoices(), getClients()])
@@ -114,6 +116,18 @@ export default function Invoices() {
       setInvoices(prev => prev.filter(i => i._id !== id));
     } catch {
       setError('Failed to delete');
+    }
+  };
+
+  const handleReminder = async (id: string) => {
+    setReminderLoading(id);
+    try {
+      await sendInvoiceReminder(id);
+      setReminderSent(prev => [...prev, id]);
+    } catch {
+      setError('Failed to send reminder');
+    } finally {
+      setReminderLoading(null);
     }
   };
 
@@ -203,11 +217,35 @@ export default function Invoices() {
                     {new Date(inv.dueDate).toLocaleDateString()}
                   </td>
                   <td style={s.td}>
-                    <button
-                      className="row-del"
-                      onClick={() => handleDelete(inv._id)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', fontSize: '18px', transition: 'color 0.15s' }}
-                    >×</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        onClick={() => window.open(`/invoice/${inv._id}`, '_blank')}
+                        style={s.viewBtn}
+                      >
+                        View
+                      </button>
+                      {inv.status !== 'paid' && (
+                        <button
+                          onClick={() => handleReminder(inv._id)}
+                          disabled={reminderLoading === inv._id || reminderSent.includes(inv._id)}
+                          style={{
+                            ...s.remindBtn,
+                            background: reminderSent.includes(inv._id) ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)',
+                            border: `1px solid ${reminderSent.includes(inv._id) ? 'rgba(16,185,129,0.25)' : 'rgba(245,158,11,0.25)'}`,
+                            color: reminderSent.includes(inv._id) ? '#34d399' : '#fbbf24',
+                            opacity: reminderLoading === inv._id ? 0.7 : 1,
+                            cursor: reminderLoading === inv._id ? 'wait' : 'pointer',
+                          }}
+                        >
+                          {reminderLoading === inv._id ? '...' : reminderSent.includes(inv._id) ? '✓ Sent' : 'Remind'}
+                        </button>
+                      )}
+                      <button
+                        className="row-del"
+                        onClick={() => handleDelete(inv._id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#4b5563', fontSize: '18px', transition: 'color 0.15s' }}
+                      >×</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -340,6 +378,8 @@ const s: Record<string, React.CSSProperties> = {
   clientCell: { display: 'flex', alignItems: 'center', gap: '10px' },
   avatar: { width: '28px', height: '28px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, flexShrink: 0 },
   badge: { fontSize: '11px', fontWeight: 500, padding: '3px 10px', borderRadius: '20px', textTransform: 'capitalize' as const },
+  viewBtn: { background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)', borderRadius: '6px', color: '#a78bfa', fontSize: '11px', padding: '4px 10px', cursor: 'pointer', fontFamily: "'DM Sans',sans-serif" },
+  remindBtn: { borderRadius: '6px', fontSize: '11px', padding: '4px 10px', fontFamily: "'DM Sans',sans-serif", transition: 'opacity 0.2s' },
   overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' },
   modal: { background: '#100c22', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '20px', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' },
   modalHeader: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid rgba(139,92,246,0.12)' },

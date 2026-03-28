@@ -9,7 +9,7 @@ import Clients from './pages/clients/Clients';
 import Payments from './pages/payments/Payments';
 import AIInsights from './pages/ai/AIInsights';
 import Settings from './pages/settings/Settings';
-import PublicInvoice from './pages/PublicInvoice';
+import PublicInvoice from './pages/invoices/PublicInvoice';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);

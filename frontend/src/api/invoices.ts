@@ -24,3 +24,18 @@ export const deleteInvoice = async (id: string) => {
   const { data } = await axiosInstance.delete(`/invoices/${id}`);
   return data;
 };
+
+export const getPublicInvoice = async (id: string) => {
+  const { data } = await axiosInstance.get(`/invoices/public/${id}`);
+  return data;
+};
+
+export const markAsPaid = async (id: string) => {
+  const { data } = await axiosInstance.patch(`/invoices/public/${id}/mark-paid`);
+  return data;
+};
+
+export const sendInvoiceReminder = async (id: string) => {
+  const { data } = await axiosInstance.post(`/invoices/${id}/remind`);
+  return data;
+};

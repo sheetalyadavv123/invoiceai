@@ -59,7 +59,7 @@ export default function AIInsights() {
       <div style={s.header}>
         <div>
           <h1 style={s.title}>AI Insights</h1>
-          <p style={s.sub}>Powered by Groq — real-time financial intelligence</p>
+          <p style={s.sub}>real-time financial intelligence</p>
         </div>
         <div style={s.badge}>
           <span style={s.dot} />
