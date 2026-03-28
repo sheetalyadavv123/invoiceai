@@ -9,6 +9,7 @@ import Clients from './pages/clients/Clients';
 import Payments from './pages/payments/Payments';
 import AIInsights from './pages/ai/AIInsights';
 import Settings from './pages/settings/Settings';
+import PublicInvoice from './pages/PublicInvoice';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -19,8 +20,12 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/invoice/:id" element={<PublicInvoice />} />
+
+        {/* Protected dashboard routes */}
         <Route
           path="/"
           element={
@@ -37,6 +42,7 @@ export default function App() {
           <Route path="settings" element={<Settings />} />
           <Route index element={<Navigate to="dashboard" replace />} />
         </Route>
+
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>

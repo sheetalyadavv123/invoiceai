@@ -21,7 +21,13 @@ const statusStyle = (s: string): React.CSSProperties => ({
   overdue: { background: 'rgba(239,68,68,0.12)',  color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' },
 }[s] as React.CSSProperties);
 
-const EMPTY_FORM = { clientId: '', dueDate: '', notes: '', status: 'pending', items: [{ description: '', quantity: 1, price: 0 }] };
+const EMPTY_FORM = {
+  clientId: '',
+  dueDate: '',
+  notes: '',
+  status: 'pending',
+  items: [{ description: '', quantity: 1, price: 0 }],
+};
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -48,20 +54,41 @@ export default function Invoices() {
     return matchSearch && matchStatus;
   });
 
-  const handleAddItem = () => setForm(f => ({ ...f, items: [...f.items, { description: '', quantity: 1, price: 0 }] }));
+  const handleAddItem = () => setForm(f => ({
+    ...f, items: [...f.items, { description: '', quantity: 1, price: 0 }]
+  }));
+
   const handleItemChange = (i: number, field: string, val: string | number) => {
     const items = [...form.items];
     items[i] = { ...items[i], [field]: val };
     setForm(f => ({ ...f, items }));
   };
-  const removeItem = (i: number) => setForm(f => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }));
-  const calcTotal = () => form.items.reduce((sum, it) => sum + (Number(it.quantity) * Number(it.price)), 0);
+
+  const removeItem = (i: number) => setForm(f => ({
+    ...f, items: f.items.filter((_, idx) => idx !== i)
+  }));
+
+  const calcTotal = () => form.items.reduce(
+    (sum, it) => sum + (Number(it.quantity) * Number(it.price)), 0
+  );
 
   const handleSubmit = async () => {
-    if (!form.clientId || !form.dueDate) { setError('Client and due date are required'); return; }
-    setSaving(true); setError('');
+    if (!form.clientId || !form.dueDate) {
+      setError('Client and due date are required');
+      return;
+    }
+    if (form.items.some(item => !item.description.trim())) {
+      setError('All line items must have a description');
+      return;
+    }
+    if (calcTotal() === 0) {
+      setError('Total amount must be greater than 0');
+      return;
+    }
+    setSaving(true);
+    setError('');
     try {
-      const created = await createInvoice({
+      await createInvoice({
         client: form.clientId,
         totalAmount: calcTotal(),
         dueDate: form.dueDate,
@@ -69,7 +96,8 @@ export default function Invoices() {
         status: form.status as 'pending',
         items: form.items,
       });
-      setInvoices(prev => [created, ...prev]);
+      const updated = await getInvoices();
+      setInvoices(updated);
       setShowModal(false);
       setForm(EMPTY_FORM);
     } catch {
@@ -98,16 +126,16 @@ export default function Invoices() {
         .filter-btn:hover{background:rgba(139,92,246,0.15)!important}
       `}</style>
 
-      {/* HEADER */}
       <div style={s.header}>
         <div>
           <h1 style={s.title}>Invoices</h1>
           <p style={s.sub}>{invoices.length} total invoices</p>
         </div>
-        <button onClick={() => setShowModal(true)} style={s.createBtn}>+ New Invoice</button>
+        <button onClick={() => { setShowModal(true); setError(''); }} style={s.createBtn}>
+          + New Invoice
+        </button>
       </div>
 
-      {/* FILTERS */}
       <div style={s.filterBar}>
         <input
           value={search}
@@ -129,7 +157,6 @@ export default function Invoices() {
 
       {error && <div style={s.errBanner}>{error}</div>}
 
-      {/* TABLE */}
       <div style={s.tableWrap}>
         {loading ? (
           <div style={s.loading}>Loading invoices...</div>
@@ -189,7 +216,6 @@ export default function Invoices() {
         )}
       </div>
 
-      {/* MODAL */}
       {showModal && (
         <div style={s.overlay} onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div style={s.modal}>
@@ -225,11 +251,11 @@ export default function Invoices() {
               </div>
 
               <div style={s.field}>
-                <label style={s.label}>Line Items</label>
+                <label style={s.label}>Line Items *</label>
                 {form.items.map((item, i) => (
                   <div key={i} style={s.itemRow}>
                     <input
-                      placeholder="Description"
+                      placeholder="Description (required)"
                       value={item.description}
                       onChange={e => handleItemChange(i, 'description', e.target.value)}
                       style={{ ...s.input, flex: 2 }}
