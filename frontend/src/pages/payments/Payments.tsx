@@ -1,30 +1,21 @@
 import { useEffect, useState } from 'react';
 import { getPaymentHistory } from '../../api/payments';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
-interface Payment {
-  _id: string;
-  invoice: { _id: string; totalAmount: number; invoiceNumber: string } | string;
-  client: { _id: string; name: string } | string;
-  amount: number;
-  date: string;
-  method: string;
-}
+interface Payment { _id: string; invoiceId: any; amount: number; date: string; method: string; }
 
-const METHOD_COLORS: Record<string, React.CSSProperties> = {
-  cash:          { background: 'rgba(16,185,129,0.12)',  color: '#34d399', border: '1px solid rgba(16,185,129,0.25)' },
-  bank_transfer: { background: 'rgba(59,130,246,0.12)',  color: '#60a5fa', border: '1px solid rgba(59,130,246,0.25)' },
-  card:          { background: 'rgba(139,92,246,0.12)',  color: '#a78bfa', border: '1px solid rgba(139,92,246,0.25)' },
-  upi:           { background: 'rgba(245,158,11,0.12)',  color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' },
-  other:         { background: 'rgba(107,114,128,0.12)', color: '#9ca3af', border: '1px solid rgba(107,114,128,0.25)' },
-};
-const methodStyle = (m: string) => METHOD_COLORS[m] || METHOD_COLORS['other'];
+const methodStyle = (m: string): React.CSSProperties => ({
+  cash:          { background: 'rgba(16,185,129,0.12)', color: '#34d399', border: '1px solid rgba(16,185,129,0.25)' },
+  bank_transfer: { background: 'rgba(59,130,246,0.12)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.25)' },
+  card:          { background: 'rgba(139,92,246,0.12)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.25)' },
+  cheque:        { background: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.25)' },
+}[m] || { background: 'rgba(139,92,246,0.12)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.25)' });
 
 export default function Payments() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
-  const [filterMethod, setFilterMethod] = useState('all');
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     getPaymentHistory()
@@ -33,177 +24,84 @@ export default function Payments() {
       .finally(() => setLoading(false));
   }, []);
 
-  const totalRevenue = payments.reduce((s, p) => s + p.amount, 0);
-
-  const filtered = payments.filter(p => {
-    const matchMethod = filterMethod === 'all' || p.method === filterMethod;
-    const clientName = typeof p.client === 'object' ? p.client.name.toLowerCase() : '';
-    const matchSearch = search === '' || clientName.includes(search.toLowerCase()) || p.method.includes(search.toLowerCase());
-    return matchMethod && matchSearch;
-  });
-
-  const methods = ['all', ...Array.from(new Set(payments.map(p => p.method)))];
-
-  const getInvoiceNumber = (invoice: Payment['invoice']) => {
-    if (typeof invoice === 'object') return invoice.invoiceNumber || invoice._id.slice(-6).toUpperCase();
-    return String(invoice).slice(-6).toUpperCase();
-  };
-
-  const getClientName = (client: Payment['client']) => {
-    if (typeof client === 'object') return client.name;
-    return 'Unknown';
-  };
+  const total = payments.reduce((s, p) => s + p.amount, 0);
+  const thisMonth = payments.filter(p => new Date(p.date).getMonth() === new Date().getMonth()).reduce((s, p) => s + p.amount, 0);
 
   return (
-    <div style={s.page}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
-        .pay-row:hover{background:rgba(139,92,246,0.06)!important}
-        .filter-btn:hover{background:rgba(139,92,246,0.15)!important}
-      `}</style>
-
-      <div style={s.header}>
-        <div>
-          <h1 style={s.title}>Payments</h1>
-          <p style={s.sub}>{payments.length} total records</p>
-        </div>
+    <div style={{ padding: isMobile ? '16px' : '32px' }}>
+      <div style={{ marginBottom: '20px' }}>
+        <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: isMobile ? '20px' : '24px', fontWeight: 800, color: '#f3e8ff', letterSpacing: '-0.5px' }}>Payments</h1>
+        <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '2px' }}>{payments.length} total records</p>
       </div>
 
-      {/* SUMMARY CARDS */}
-      <div style={s.statsRow}>
+      {/* STAT CARDS */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: isMobile ? '10px' : '16px', marginBottom: '20px' }}>
         {[
-          { label: 'Total Collected', val: `₹${totalRevenue.toLocaleString()}`, color: '#7c3aed' },
-          {
-            label: 'This Month',
-            val: `₹${payments
-              .filter(p => new Date(p.date).getMonth() === new Date().getMonth())
-              .reduce((s, p) => s + p.amount, 0)
-              .toLocaleString()}`,
-            color: '#10b981',
-          },
-          { label: 'Transactions', val: payments.length.toString(), color: '#f59e0b' },
-          {
-            label: 'Avg Payment',
-            val: payments.length ? `₹${Math.round(totalRevenue / payments.length).toLocaleString()}` : '₹0',
-            color: '#8b5cf6',
-          },
+          { label: 'Total Collected', val: `₹${total.toLocaleString()}`, color: '#7c3aed' },
+          { label: 'This Month', val: `₹${thisMonth.toLocaleString()}`, color: '#10b981' },
+          { label: 'Transactions', val: String(payments.length), color: '#f59e0b' },
+          { label: 'Avg Payment', val: payments.length ? `₹${Math.round(total / payments.length).toLocaleString()}` : '₹0', color: '#8b5cf6' },
         ].map(card => (
-          <div key={card.label} style={s.statCard}>
-            <div style={s.statValue}>{card.val}</div>
-            <div style={s.statLabel}>{card.label}</div>
-            <div style={{ ...s.statBar, background: card.color }} />
+          <div key={card.label} style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)', borderRadius: '14px', padding: isMobile ? '14px' : '18px 20px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: isMobile ? '18px' : '22px', fontWeight: 700, color: '#f3e8ff', marginBottom: '4px' }}>{card.val}</div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>{card.label}</div>
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', background: card.color, opacity: 0.6 }} />
           </div>
         ))}
       </div>
 
-      {error && <div style={s.errBanner}>{error}</div>}
+      {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', color: '#fca5a5', fontSize: '13px', padding: '10px 14px', marginBottom: '16px' }}>{error}</div>}
 
-      {/* FILTERS */}
-      <div style={s.filterBar}>
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search by client or method..."
-          style={s.searchInput}
-        />
-        <div style={s.filterGroup}>
-          {methods.map(m => (
-            <button
-              key={m}
-              className="filter-btn"
-              onClick={() => setFilterMethod(m)}
-              style={{
-                ...s.filterBtn,
-                background: filterMethod === m ? 'rgba(124,58,237,0.25)' : 'transparent',
-                color: filterMethod === m ? '#c4b5fd' : '#6b7280',
-                border: filterMethod === m ? '1px solid rgba(124,58,237,0.4)' : '1px solid transparent',
-              }}
-            >
-              {m.replace('_', ' ')}
-            </button>
+      {loading ? <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+      : payments.length === 0 ? <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>No payments recorded yet.</div>
+      : isMobile ? (
+        // MOBILE CARD LIST
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {payments.map(p => (
+            <div key={p._id} style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)', borderRadius: '14px', padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                <div>
+                  <div style={{ fontSize: '14px', color: '#c4b5fd', fontWeight: 500 }}>
+                    {typeof p.invoiceId === 'object' && p.invoiceId?.client ? (p.invoiceId.client as any).name : 'Invoice'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>
+                    #{typeof p.invoiceId === 'object' ? p.invoiceId._id?.slice(-6).toUpperCase() : String(p.invoiceId).slice(-6).toUpperCase()}
+                  </div>
+                </div>
+                <span style={{ fontSize: '11px', fontWeight: 500, padding: '3px 10px', borderRadius: '20px', textTransform: 'capitalize' as const, ...methodStyle(p.method) }}>
+                  {p.method.replace('_', ' ')}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#34d399' }}>+₹{p.amount.toLocaleString()}</span>
+                <span style={{ fontSize: '12px', color: '#6b7280' }}>{new Date(p.date).toLocaleDateString()}</span>
+              </div>
+            </div>
           ))}
         </div>
-      </div>
-
-      {/* TABLE */}
-      <div style={s.tableWrap}>
-        {loading ? (
-          <div style={s.loading}>Loading payments...</div>
-        ) : (
-          <table style={s.table}>
+      ) : (
+        // DESKTOP TABLE
+        <div style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)', borderRadius: '16px', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr>
-                {['Client', 'Invoice', 'Amount', 'Method', 'Date'].map(h => (
-                  <th key={h} style={s.th}>{h}</th>
-                ))}
-              </tr>
+              <tr>{['Invoice', 'Amount', 'Method', 'Date'].map(h => <th key={h} style={{ textAlign: 'left' as const, fontSize: '11px', fontWeight: 500, color: '#4b5563', textTransform: 'uppercase' as const, letterSpacing: '0.8px', padding: '14px 20px', borderBottom: '1px solid rgba(139,92,246,0.1)' }}>{h}</th>)}</tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ ...s.td, textAlign: 'center', color: '#4b5563', padding: '40px' }}>
-                    No payments found
+              {payments.map(p => (
+                <tr key={p._id}>
+                  <td style={{ padding: '14px 20px', fontSize: '13.5px', color: '#c4b5fd', borderBottom: '1px solid rgba(139,92,246,0.07)' }}>
+                    <div style={{ fontSize: '13px', color: '#c4b5fd' }}>{typeof p.invoiceId === 'object' && p.invoiceId?.client ? (p.invoiceId.client as any).name : 'Invoice'}</div>
+                    <div style={{ fontSize: '11px', color: '#4b5563', marginTop: '2px' }}>#{typeof p.invoiceId === 'object' ? p.invoiceId._id?.slice(-6).toUpperCase() : String(p.invoiceId).slice(-6).toUpperCase()}</div>
                   </td>
-                </tr>
-              ) : filtered.map(p => (
-                <tr key={p._id} className="pay-row" style={{ transition: 'background 0.15s' }}>
-                  <td style={s.td}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{
-                        width: '28px', height: '28px', borderRadius: '8px', display: 'flex',
-                        alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600,
-                        background: `hsl(${getClientName(p.client).charCodeAt(0) * 5},60%,25%)`,
-                        color: `hsl(${getClientName(p.client).charCodeAt(0) * 5},80%,70%)`,
-                        flexShrink: 0,
-                      }}>
-                        {getClientName(p.client)[0]}
-                      </div>
-                      <span style={{ fontSize: '13px', color: '#c4b5fd' }}>{getClientName(p.client)}</span>
-                    </div>
-                  </td>
-                  <td style={{ ...s.td, color: '#6b7280', fontSize: '12px' }}>
-                    #{getInvoiceNumber(p.invoice)}
-                  </td>
-                  <td style={{ ...s.td, color: '#34d399', fontWeight: 600 }}>
-                    +₹{p.amount.toLocaleString()}
-                  </td>
-                  <td style={s.td}>
-                    <span style={{ ...s.badge, ...methodStyle(p.method) }}>
-                      {p.method.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td style={{ ...s.td, color: '#6b7280' }}>
-                    {new Date(p.date).toLocaleDateString()}
-                  </td>
+                  <td style={{ padding: '14px 20px', fontSize: '13.5px', color: '#34d399', fontWeight: 600, borderBottom: '1px solid rgba(139,92,246,0.07)' }}>+₹{p.amount.toLocaleString()}</td>
+                  <td style={{ padding: '14px 20px', borderBottom: '1px solid rgba(139,92,246,0.07)' }}><span style={{ fontSize: '11px', fontWeight: 500, padding: '3px 10px', borderRadius: '20px', textTransform: 'capitalize' as const, ...methodStyle(p.method) }}>{p.method.replace('_', ' ')}</span></td>
+                  <td style={{ padding: '14px 20px', fontSize: '13.5px', color: '#6b7280', borderBottom: '1px solid rgba(139,92,246,0.07)' }}>{new Date(p.date).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
-
-const s: Record<string, React.CSSProperties> = {
-  page: { padding: '32px', minHeight: '100vh' },
-  header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' },
-  title: { fontFamily: "'Syne',sans-serif", fontSize: '24px', fontWeight: 800, color: '#f3e8ff', letterSpacing: '-0.5px' },
-  sub: { fontSize: '13px', color: '#6b7280', marginTop: '2px' },
-  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '16px', marginBottom: '24px' },
-  statCard: { background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)', borderRadius: '14px', padding: '18px 20px', position: 'relative', overflow: 'hidden' },
-  statValue: { fontFamily: "'Syne',sans-serif", fontSize: '22px', fontWeight: 700, color: '#f3e8ff', marginBottom: '4px' },
-  statLabel: { fontSize: '12px', color: '#6b7280' },
-  statBar: { position: 'absolute', bottom: 0, left: 0, right: 0, height: '3px', opacity: 0.6 },
-  errBanner: { background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', color: '#fca5a5', fontSize: '13px', padding: '10px 14px', marginBottom: '16px' },
-  filterBar: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' as const },
-  searchInput: { flex: 1, minWidth: '200px', padding: '9px 14px', background: 'rgba(139,92,246,0.07)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: '10px', color: '#e9d5ff', fontSize: '13px', outline: 'none', fontFamily: "'DM Sans',sans-serif" },
-  filterGroup: { display: 'flex', gap: '4px', flexWrap: 'wrap' as const },
-  filterBtn: { padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', textTransform: 'capitalize' as const, transition: 'all 0.15s' },
-  tableWrap: { background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.12)', borderRadius: '16px', overflow: 'hidden' },
-  loading: { padding: '48px', textAlign: 'center', color: '#6b7280', fontSize: '14px' },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: { textAlign: 'left' as const, fontSize: '11px', fontWeight: 500, color: '#4b5563', textTransform: 'uppercase' as const, letterSpacing: '0.8px', padding: '14px 20px', borderBottom: '1px solid rgba(139,92,246,0.1)' },
-  td: { padding: '14px 20px', fontSize: '13.5px', color: '#c4b5fd', borderBottom: '1px solid rgba(139,92,246,0.07)' },
-  badge: { fontSize: '11px', fontWeight: 500, padding: '3px 10px', borderRadius: '20px', textTransform: 'capitalize' as const },
-};
