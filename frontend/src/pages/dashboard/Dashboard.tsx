@@ -23,6 +23,7 @@ export default function Dashboard() {
   const pending = invoices.filter(i => i.status === 'pending').length;
   const overdue = invoices.filter(i => i.status === 'overdue').length;
   const total   = invoices.length;
+
   const totalRevenue  = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + i.totalAmount, 0);
   const pendingAmount = invoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.totalAmount, 0);
   const overdueAmount = invoices.filter(i => i.status === 'overdue').reduce((s, i) => s + i.totalAmount, 0);
@@ -50,27 +51,53 @@ export default function Dashboard() {
   const renderDonut = () => {
     const Chart = (window as any).Chart;
     if (!Chart || !canvasRef.current) return;
+
     if (chartRef.current) chartRef.current.destroy();
-    const isEmpty = paid === 0 && pending === 0 && overdue === 0;
+
+    // ✅ FIXED LOGIC
+    const dataValues = [paid, pending, overdue];
+    const totalData = dataValues.reduce((a, b) => a + b, 0);
+    const isEmpty = totalData === 0;
+
     chartRef.current = new Chart(canvasRef.current, {
       type: 'doughnut',
       data: {
         labels: ['Paid', 'Pending', 'Overdue'],
         datasets: [{
-          data: isEmpty ? [1, 1, 1] : [paid, pending, overdue],
-          backgroundColor: isEmpty ? ['rgba(139,92,246,0.08)', 'rgba(139,92,246,0.08)', 'rgba(139,92,246,0.08)'] : ['#10b981', '#f59e0b', '#ef4444'],
-          borderColor: '#080612', borderWidth: 3, hoverOffset: isEmpty ? 0 : 6,
+          data: isEmpty ? [1, 1, 1] : dataValues,
+          backgroundColor: isEmpty
+            ? ['rgba(139,92,246,0.08)', 'rgba(139,92,246,0.08)', 'rgba(139,92,246,0.08)']
+            : ['#10b981', '#f59e0b', '#ef4444'],
+          borderColor: '#080612',
+          borderWidth: 3,
+          hoverOffset: isEmpty ? 0 : 6,
         }],
       },
       options: {
-        responsive: true, maintainAspectRatio: false, cutout: '72%',
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
         plugins: {
           legend: { display: false },
-          tooltip: isEmpty ? { enabled: false } : {
-            backgroundColor: '#1a1035', borderColor: 'rgba(124,58,237,0.4)', borderWidth: 1,
-            titleColor: '#c4b5fd', bodyColor: '#e9d5ff', padding: 10,
-            callbacks: { label: (c: any) => ` ${c.raw} invoices (${total > 0 ? Math.round((c.raw / total) * 100) : 0}%)` },
-          },
+          tooltip: isEmpty
+            ? { enabled: false }
+            : {
+                backgroundColor: '#1a1035',
+                borderColor: 'rgba(124,58,237,0.4)',
+                borderWidth: 1,
+                titleColor: '#c4b5fd',
+                bodyColor: '#e9d5ff',
+                padding: 10,
+                callbacks: {
+                  label: (c: any) => {
+                    const value = c.raw;
+                    const percentage = totalData > 0
+                      ? Math.round((value / totalData) * 100)
+                      : 0;
+                    return ` ${value} invoices (${percentage}%)`;
+                  },
+                },
+              },
         },
       },
     });
@@ -83,7 +110,7 @@ export default function Dashboard() {
   }[status] as React.CSSProperties);
 
   const p = isMobile ? '16px' : '28px 32px';
-
+  
   return (
     <div style={{ padding: p }}>
       <style>{`
