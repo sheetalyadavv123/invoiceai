@@ -1,9 +1,9 @@
-import { TransactionalEmailsApi, TransactionalEmailsApiApiKeys } from '@getbrevo/brevo';
+import Brevo from '@getbrevo/brevo';
 import { generateInvoicePDF } from './pdfService.js';
 
-const apiInstance = new TransactionalEmailsApi();
+const apiInstance = new Brevo.TransactionalEmailsApi();
 apiInstance.setApiKey(
-  TransactionalEmailsApiApiKeys.apiKey,
+  Brevo.TransactionalEmailsApiApiKeys.apiKey,
   process.env.BREVO_API_KEY
 );
 
