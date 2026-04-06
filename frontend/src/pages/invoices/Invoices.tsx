@@ -220,7 +220,7 @@ export default function Invoices() {
                   <td style={s.td}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <button
-                        onClick={() => window.open(`/invoice/${inv._id}`, '_blank')}
+                        onClick={() => window.open(`/invoice/${inv._id}?preview=true`, '_blank')}
                         style={s.viewBtn}
                       >
                         View
