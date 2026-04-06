@@ -3,21 +3,52 @@ import { getInvoices } from '../../api/invoices';
 import { getFinancialInsights } from '../../api/ai';
 import type { Invoice } from '../../types/Invoice';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useInvoiceStore } from '../../store/invoiceStore';
 
 export default function Dashboard() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [insights, setInsights] = useState<string>('');
-  const [loading, setLoading] = useState(true);
+  const {
+  invoices, insights, lastFetched,
+  setInvoices, setInsights, setLastFetched,
+  } = useInvoiceStore();
+  const [loading, setLoading] = useState(invoices.length === 0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<any>(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    Promise.all([getInvoices(), getFinancialInsights()])
-      .then(([inv, ins]) => { setInvoices(inv); setInsights(ins.insights || ''); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const FIVE_MINUTES = 5 * 60 * 1000;
+  const now = Date.now();
+  const isFresh = lastFetched && (now - lastFetched) < FIVE_MINUTES;
+
+  if (isFresh) {
+    setLoading(false);
+    return;
+  }
+
+  const fetchInvoices = async () => {
+    try {
+      const invoiceData = await getInvoices();
+      setInvoices(invoiceData);
+      setLastFetched(Date.now());
+    } catch (err) {
+      console.error('Invoice fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchInsights = async () => {
+    try {
+      const insightData = await getFinancialInsights();
+      setInsights(insightData.insights || '');
+    } catch (err) {
+      console.error('Insights fetch error:', err);
+    }
+  };
+
+  fetchInvoices();
+  if (!insights) fetchInsights();
+}, []);
 
   const paid    = invoices.filter(i => i.status === 'paid').length;
   const pending = invoices.filter(i => i.status === 'pending').length;

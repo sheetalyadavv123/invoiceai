@@ -1,18 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getInvoices, createInvoice, deleteInvoice, sendInvoiceReminder } from '../../api/invoices';
 import { getClients } from '../../api/clients';
+import { useInvoiceStore } from '../../store/invoiceStore';
+import type { Invoice, InvoiceItem } from '../../types/Invoice'; // ✅ use global types
 
-interface InvoiceItem { description: string; quantity: number; price: number; }
-interface Invoice {
-  _id: string;
-  client: { _id: string; name: string } | string;
-  totalAmount: number;
-  status: 'paid' | 'pending' | 'overdue';
-  dueDate: string;
-  items: InvoiceItem[];
-  notes?: string;
-  invoiceNumber: string;
-}
 interface Client { _id: string; name: string; email: string; }
 
 const statusStyle = (s: string): React.CSSProperties => ({
@@ -41,17 +32,22 @@ export default function Invoices() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [reminderLoading, setReminderLoading] = useState<string | null>(null);
   const [reminderSent, setReminderSent] = useState<string[]>([]);
+  const { setInvoices: setStoreInvoices, setLastFetched } = useInvoiceStore();
 
   useEffect(() => {
     Promise.all([getInvoices(), getClients()])
-      .then(([inv, cli]) => { setInvoices(inv); setClients(cli); })
+      .then(([inv, cli]) => {
+        setInvoices(inv);
+        setStoreInvoices(inv);
+        setLastFetched(Date.now());
+        setClients(cli);
+      })
       .catch(() => setError('Failed to load data'))
       .finally(() => setLoading(false));
   }, []);
 
   const filtered = invoices.filter(inv => {
-    const clientName = typeof inv.client === 'object' ? inv.client.name : '';
-    const matchSearch = clientName.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = inv.client.name.toLowerCase().includes(search.toLowerCase()); // ✅ client is always object now
     const matchStatus = filterStatus === 'all' || inv.status === filterStatus;
     return matchSearch && matchStatus;
   });
@@ -100,6 +96,8 @@ export default function Invoices() {
       });
       const updated = await getInvoices();
       setInvoices(updated);
+      setStoreInvoices(updated);
+      setLastFetched(Date.now());
       setShowModal(false);
       setForm(EMPTY_FORM);
     } catch {
@@ -113,7 +111,10 @@ export default function Invoices() {
     if (!confirm('Delete this invoice?')) return;
     try {
       await deleteInvoice(id);
-      setInvoices(prev => prev.filter(i => i._id !== id));
+      const updated = invoices.filter(i => i._id !== id);
+      setInvoices(updated);
+      setStoreInvoices(updated);
+      setLastFetched(Date.now());
     } catch {
       setError('Failed to delete');
     }
