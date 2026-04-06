@@ -1,11 +1,11 @@
-import * as Brevo from '@getbrevo/brevo';
+import SibApiV3Sdk from 'sib-api-v3-sdk';
 
-const apiInstance = new Brevo.TransactionalEmailsApi();
+const client = SibApiV3Sdk.ApiClient.instance;
 
-apiInstance.setApiKey(
-  Brevo.TransactionalEmailsApiApiKeys.apiKey,
-  process.env.BREVO_API_KEY
-);
+const apiKey = client.authentications['api-key'];
+apiKey.apiKey = process.env.BREVO_API_KEY;
+
+const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
 
 // ─── TONE ENGINE 
 export const getTone = (daysPastDue) => {
