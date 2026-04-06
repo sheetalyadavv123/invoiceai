@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getInvoices, createInvoice, deleteInvoice, sendInvoiceReminder } from '../../api/invoices';
 import { getClients } from '../../api/clients';
 import { useInvoiceStore } from '../../store/invoiceStore';
-import type { Invoice, InvoiceItem } from '../../types/Invoice'; // ✅ use global types
+import type { Invoice} from '../../types/Invoice'; 
 
 interface Client { _id: string; name: string; email: string; }
 

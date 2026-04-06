@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getInvoices } from '../../api/invoices';
 import { getFinancialInsights } from '../../api/ai';
-import type { Invoice } from '../../types/Invoice';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useInvoiceStore } from '../../store/invoiceStore';
 
