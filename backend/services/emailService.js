@@ -1,20 +1,20 @@
-import * as Brevo from '@getbrevo/brevo';
+import { TransactionalEmailsApi, TransactionalEmailsApiApiKeys } from '@getbrevo/brevo';
 import { generateInvoicePDF } from './pdfService.js';
 
-const apiInstance = new Brevo.TransactionalEmailsApi();
+const apiInstance = new TransactionalEmailsApi();
 apiInstance.setApiKey(
-  Brevo.TransactionalEmailsApiApiKeys.apiKey,
+  TransactionalEmailsApiApiKeys.apiKey,
   process.env.BREVO_API_KEY
 );
 
-// ─── TONE ENGINE ──────────────────────────────────────────────────────────────
+// ─── TONE ENGINE 
 export const getTone = (daysPastDue) => {
   if (daysPastDue <= 7) return 'gentle';
   if (daysPastDue <= 20) return 'firm';
   return 'final';
 };
 
-// ─── SEND INVOICE EMAIL ───────────────────────────────────────────────────────
+// ─── SEND INVOICE EMAIL 
 export const sendInvoiceEmail = async (client, invoice) => {
   try {
     const pdfBuffer = await generateInvoicePDF(invoice, client);
