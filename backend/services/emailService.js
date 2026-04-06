@@ -1,11 +1,11 @@
-import Brevo from '@getbrevo/brevo';
-import { generateInvoicePDF } from './pdfService.js';
+import * as Brevo from '@getbrevo/brevo';
+
+const client = Brevo.ApiClient.instance;
+
+const apiKey = client.authentications['api-key'];
+apiKey.apiKey = process.env.BREVO_API_KEY;
 
 const apiInstance = new Brevo.TransactionalEmailsApi();
-apiInstance.setApiKey(
-  Brevo.TransactionalEmailsApiApiKeys.apiKey,
-  process.env.BREVO_API_KEY
-);
 
 // ─── TONE ENGINE 
 export const getTone = (daysPastDue) => {
