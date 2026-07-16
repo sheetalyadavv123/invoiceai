@@ -53,3 +53,33 @@ export const login = async (req, res) => {
 export const getMe = async (req, res) => {
   res.json(req.user);
 };
+
+// Update profile
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { name, email },
+      { new: true }
+    ).select('-passwordHash');
+    res.json({ user });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update profile' });
+  }
+};
+
+// Update password
+export const updatePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id);
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) return res.status(400).json({ message: 'Current password is incorrect' });
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update password' });
+  }
+};
